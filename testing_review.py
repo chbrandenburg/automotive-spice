@@ -1,9 +1,11 @@
- 
-# TODO
-# use sets instead of lists
+import re 
+
+import xlsxwriter
+
+
 
 # class for requirements
-class requirement:
+class Requirement:
     
     def __init__(self, id):
         self.id = id
@@ -11,10 +13,12 @@ class requirement:
         self.inputs = set()
 
     def print(self):
-        print("ID:", self.id, " Inputs: ", self.inputs, " Tests: ", self.tests)
+        print("ID:", self.id, 
+              " Inputs: ", self.inputs, 
+              " Tests: ", self.tests)
 
 
-class requirement_group:
+class RequirementGroup:
 
     def __init__(self):
         self.reqs = set()
@@ -22,9 +26,11 @@ class requirement_group:
         self.inputs = set()   
 
     def print(self):
-        print("Requirements: ", self.reqs, " Inputs: ", self.inputs, " Tests: ", self.tests)
+        print("Requirements: ", self.reqs, 
+              " Inputs: ", self.inputs, 
+              " Tests: ", self.tests)
 
-class testcase:
+class TestCase:
     
     def __init__(self, id):
         self.id = id
@@ -50,13 +56,24 @@ def read_requirements_from_csv(filename):
         for line in myfile:
             segments = line.split(sep)
             id = int(segments[req_id_col])
-            req = requirement(id)
+            req = Requirement(id)
 
-            # create list of inputs
-            req.inputs = set(map(int, segments[input_id_col].split(',')))
-            # create list of tests
-            req.tests = set(map(int, segments[test_id_col].split(',')))
-            
+            # create set of inputs
+            # if no inputs are linked, leave empty
+            try:
+                #req.inputs = set(map(int, re.sub("[^0-9]", "", 
+                #                        segments[input_id_col].split(','))))
+                req.inputs = set(map(int, segments[input_id_col].split(',')))
+            except:
+                req.inputs = set()
+            # create set of test cases
+            # if no test cases are linked, leave empty
+            try:
+                #req.tests = set(map(int, re.sub("[^0-9]", "", 
+                #                        segments[test_id_col].split(','))))
+                req.tests = set(map(int, segments[test_id_col].split(',')))
+            except:
+                req.tests = set()
             req_list.append(req)
     
     return req_list
@@ -77,11 +94,16 @@ def read_testcases_from_csv(filename):
         for line in myfile:
             segments = line.split(sep)
             id = int(segments[test_id_col])
-            test = testcase(id)
+            test = TestCase(id)
 
-            # create list of requirements
-            test.reqs = set(map(int, segments[req_id_col].split(',')))
-            
+            # create set of requirements (non-numerical characters are removed)
+            # if no requirements are linked, leave empty
+            try:
+                #test.reqs = set(map(int, re.sub("[^0-9]", "", 
+                #                        segments[req_id_col].split(','))))
+                test.reqs = set(map(int, segments[req_id_col].split(',')))
+            except:
+                test.reqs = set()
             test_list.append(test)
     
     return test_list
@@ -120,7 +142,7 @@ for id in req_dict.keys():
     # check if the req belongs to a new group
     if id in req_ids_unprocessed:
         
-        req_grp = requirement_group()         
+        req_grp = RequirementGroup()         
         req_grp.tests = req_dict[id].tests
         req_grp.inputs = req_dict[id].inputs
         
@@ -150,4 +172,21 @@ for req_grp in req_groups:
     
 print("\nUnprocessed Requirement IDs:")
 print(req_ids_unprocessed)   
-    
+
+
+
+
+workbook = xlsxwriter.Workbook('Testing_Review.xlsx')
+worksheet = workbook.add_worksheet()
+
+worksheet.write(0, 0, "Inputs")
+worksheet.write(0, 1, "Requirements")
+worksheet.write(0, 2, "Test Cases")
+row = 1
+for req_grp in req_groups:
+    worksheet.write(row, 0, re.sub("[{}]", "", repr(req_grp.inputs)))
+    worksheet.write(row, 1, re.sub("[{}]", "", repr(req_grp.reqs)))
+    worksheet.write(row, 2, re.sub("[{}]", "", repr(req_grp.tests)))
+    row += 1
+
+workbook.close()
